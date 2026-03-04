@@ -1,0 +1,2012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>External Merge Sort Visualizer</title>
+  <style>
+    :root {
+      --bg-color: #1e1e1e;
+      --text-color: #e0e0e0;
+      --node-bg: #333;
+      --node-border: #555;
+      --highlight-base: #2196f3;
+      --highlight-compare: #ff9800;
+      --highlight-swap: #e91e63;
+      --highlight-sorted: #4caf50;
+      --stream-bg: #2d2d2d;
+      --scrollbar-bg: #252525;
+      --scrollbar-thumb: #555;
+      --panel-bg: #252525;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 20px;
+      gap: 10px;
+    }
+
+    h1 { margin: 0; }
+    h3 {
+      margin: 0 0 8px 0;
+      color: #aaa;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 980px;
+      display: grid;
+      grid-template-columns: 80px 80px 100px 100px 120px 120px 1fr 80px;
+      gap: 10px;
+      align-items: center;
+      z-index: 10;
+    }
+
+    button {
+      width: 100%;
+      height: 50px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      background-color: var(--highlight-base);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    button:hover { background-color: #1976d2; }
+    button:disabled { background-color: #555; cursor: not-allowed; }
+    button.play-btn { background-color: var(--highlight-sorted); }
+    button.play-btn.paused { background-color: #ff9800; }
+
+    .control-box {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background-color: #333;
+      height: 50px;
+      border-radius: 4px;
+      border: 1px solid #555;
+      padding: 0 8px;
+    }
+    .control-box.disabled {
+      opacity: 0.55;
+      filter: grayscale(0.2);
+    }
+
+    .control-box label {
+      font-size: 10px;
+      color: #aaa;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+    }
+
+    .control-box input,
+    .control-box select {
+      width: 100%;
+      background: #222;
+      border: 1px solid #555;
+      color: #fff;
+      text-align: center;
+      border-radius: 3px;
+      height: 24px;
+      font-size: 12px;
+    }
+
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background-color: #333;
+      height: 50px;
+      border-radius: 4px;
+      border: 1px solid #555;
+      padding: 0 10px;
+    }
+
+    .slider-container input[type=range] { width: 100%; cursor: pointer; }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      font-size: 10px;
+      color: #aaa;
+      margin-top: 2px;
+    }
+
+    .status-box {
+      background-color: #333;
+      height: 50px;
+      padding: 0 10px;
+      border-radius: 4px;
+      border: 1px solid #555;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: bold;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1000px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .panel {
+      width: 100%;
+      background: var(--panel-bg);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .col { flex: 1; min-width: 0; }
+
+    .scroll-row {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-bg);
+    }
+
+    .scroll-row::-webkit-scrollbar { height: 8px; }
+    .scroll-row::-webkit-scrollbar-track { background: var(--scrollbar-bg); border-radius: 4px; }
+    .scroll-row::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+
+    .item {
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-size: 13px;
+      color: #fff;
+      background: #3b3b3b;
+      flex-shrink: 0;
+    }
+
+    .item.input { background: #546e7a; }
+    .item.output { background: var(--highlight-sorted); }
+    .item.mid { background: #6a1b9a; }
+
+    .runs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+      gap: 8px;
+    }
+
+    .run-box {
+      background: var(--stream-bg);
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 6px;
+    }
+
+    .run-head {
+      font-size: 11px;
+      color: #bbb;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .run-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .run-item {
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+      background: #424242;
+    }
+    .run-item.active { background: #1565c0; }
+    .run-item.frozen { background: #6a1b9a; }
+    .run-item.current { background: #2e7d32; }
+    .mini-heap-container {
+      position: relative;
+      width: 100%;
+      min-height: 170px;
+      background: #202020;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .mini-heap-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .mini-heap-svg line {
+      stroke: #4d4d4d;
+      stroke-width: 1.5;
+    }
+    .mini-node {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #6a6a6a;
+      background: #263238;
+      color: #fff;
+      position: absolute;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .mini-empty {
+      font-size: 12px;
+      color: #888;
+      padding: 8px;
+    }
+
+    .run-item.popped { opacity: 0.35; text-decoration: line-through; }
+
+    .scan-container {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 90px;
+      padding: 12px 0;
+      background: #202020;
+      border-radius: 8px;
+    }
+    .frozen-row {
+      margin-top: 8px;
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .node {
+      width: 62px;
+      height: 62px;
+      background: var(--node-bg);
+      border: 3px solid var(--node-border);
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 12px;
+      transition: all 0.2s ease;
+      position: absolute;
+      z-index: 2;
+    }
+
+    .node span.val { font-size: 15px; font-weight: bold; }
+    .node span.idx { font-size: 10px; color: #aaa; margin-top: 2px; }
+
+    .node.scanning { border-color: var(--highlight-compare); box-shadow: 0 0 12px var(--highlight-compare); transform: scale(1.08); }
+    .node.current-min { border-color: var(--highlight-base); background: #0d47a1; }
+    .node.winner { border-color: var(--highlight-sorted); background: #1b5e20; transform: scale(1.08); }
+    .node.swapping { border-color: var(--highlight-swap); background: #6a1b33; transform: scale(1.08); }
+    .node.replacing { border-color: var(--highlight-base); }
+
+    svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    line { stroke: #555; stroke-width: 2; }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      background: #2b2b2b;
+      border: 1px solid #454545;
+      border-radius: 6px;
+      padding: 8px;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .stat .k { color: #aaa; display: block; font-size: 10px; text-transform: uppercase; }
+    .stat .v { color: #fff; font-weight: bold; font-size: 14px; }
+
+    @media (max-width: 980px) {
+      .controls {
+        grid-template-columns: repeat(2, minmax(130px, 1fr));
+      }
+
+      .info-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+      }
+
+      .row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <h1>External Merge Sort Visualizer</h1>
+
+  <div class="container">
+    <div class="panel">
+      <h3>Configuration</h3>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <label for="strategySelect" style="font-size:12px; color:#bbb;">Merge Strategy</label>
+        <select id="strategySelect" style="background:#222; color:#fff; border:1px solid #555; border-radius:4px; height:28px; padding:0 8px;">
+          <option value="auto">Auto (Python-like)</option>
+          <option value="linear">Linear Scan</option>
+          <option value="heap">Min-Heap</option>
+        </select>
+        <label for="drainModeSelect" style="font-size:12px; color:#bbb;">Drain Mode</label>
+        <select id="drainModeSelect" style="background:#222; color:#fff; border:1px solid #555; border-radius:4px; height:28px; padding:0 8px;">
+          <option value="stepwise">Stepwise</option>
+          <option value="instant">All In One Step</option>
+        </select>
+        <label for="runGenSelect" style="font-size:12px; color:#bbb;">Run Generation</label>
+        <select id="runGenSelect" style="background:#222; color:#fff; border:1px solid #555; border-radius:4px; height:28px; padding:0 8px;">
+          <option value="internal">Internal Chunk Sort</option>
+          <option value="replacement">Replacement Selection</option>
+        </select>
+        <label for="dataSourceSelect" style="font-size:12px; color:#bbb;">Data Source</label>
+        <select id="dataSourceSelect" style="background:#222; color:#fff; border:1px solid #555; border-radius:4px; height:28px; padding:0 8px;">
+          <option value="random">Random Generated</option>
+          <option value="file">From File</option>
+        </select>
+        <label for="fileInput" style="font-size:12px; color:#bbb;">Input File</label>
+        <input id="fileInput" type="file" accept=".txt,.csv,.json,.bin" style="background:#222; color:#fff; border:1px solid #555; border-radius:4px; height:28px; padding:2px 8px; max-width:280px;">
+        <span id="comparison-counter" style="font-size:12px; color:#bbb;">Comparisons: 0</span>
+        <span id="delayValue" style="font-size:12px; color:#bbb;">Delay: 1000 ms</span>
+      </div>
+      <div id="fileRules" style="font-size:11px; color:#999; margin-top:8px;">
+        File constraints: max 2 MB, max 5000 values, numeric only (int/float) or .bin float64 (little-endian), formats .txt/.csv/.json/.bin.
+      </div>
+      <div id="fileStatus" style="font-size:11px; color:#bbb; margin-top:4px;">No file loaded.</div>
+    </div>
+
+    <div class="panel">
+      <h3>Input Tape</h3>
+      <div id="inputTape" class="scroll-row"></div>
+    </div>
+
+    <div class="controls">
+      <button type="button" id="stepBtn">Step</button>
+      <button type="button" id="playBtn" class="play-btn">Play</button>
+
+      <div class="control-box">
+        <label for="seedInput">Seed</label>
+        <input id="seedInput" type="text" value="42">
+      </div>
+
+      <div class="control-box">
+        <label for="nInput">Input Size</label>
+        <input id="nInput" type="text" value="40">
+      </div>
+
+      <div class="control-box">
+        <label for="runInput" id="runSizeLabel">Run Size (&lt;=5000)</label>
+        <input id="runInput" type="text" value="8">
+      </div>
+
+      <div class="control-box">
+        <label for="fanInInput" id="fanInLabel">Fan-In (&lt;=16)</label>
+        <input id="fanInInput" type="text" value="4">
+      </div>
+
+      <div class="slider-container">
+        <input type="range" id="speedSlider" min="100" max="2000" value="1100" step="100">
+        <div class="slider-labels"><span>Slow</span><span>Med</span><span>Fast</span></div>
+      </div>
+
+      <button type="button" id="resetBtn">Reset</button>
+    </div>
+
+    <div class="status-box" id="status">Ready to initialize...</div>
+
+    <div class="panel" id="replacementPanel">
+      <h3>Replacement Selection State</h3>
+      <div style="font-size:12px; color:#bbb; margin-bottom:6px;" id="replacementMeta">Mode: internal</div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;">Active Heap</div>
+      <div id="replacementHeapContainer" class="mini-heap-container">
+        <svg id="replacementHeapLines" class="mini-heap-svg"></svg>
+      </div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;">Frozen Buffer</div>
+      <div id="replacementFrozen" class="scroll-row" style="margin-bottom:8px;"></div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;">Current Run Preview</div>
+      <div id="replacementCurrent" class="scroll-row"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Current Pass Runs</h3>
+      <div id="runsPanel" class="runs-grid"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Merge Workspace</h3>
+      <div class="scan-container" id="scanContainer">
+        <svg id="lines"></svg>
+      </div>
+      <div style="margin-top:8px; font-size:12px; color:#aaa;" id="workspaceLabel">No active group</div>
+      <div id="groupOutput" class="scroll-row" style="margin-top:8px;"></div>
+      <div id="frozenOutput" class="frozen-row" style="display:none;"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Next Pass Runs</h3>
+      <div id="nextRunsPanel" class="runs-grid"></div>
+    </div>
+
+    <div class="panel">
+      <div class="info-grid">
+        <div class="stat"><span class="k">Phase</span><span class="v" id="statPhase">Init</span></div>
+        <div class="stat"><span class="k">Pass</span><span class="v" id="statPass">0</span></div>
+        <div class="stat"><span class="k">Groups Done</span><span class="v" id="statGroups">0</span></div>
+        <div class="stat"><span class="k">Runs</span><span class="v" id="statRuns">0</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Final Output</h3>
+      <div id="finalOutput" class="scroll-row"></div>
+    </div>
+  </div>
+
+  <script>
+    const INF = Number.POSITIVE_INFINITY;
+
+    function mulberry32(a) {
+      return function () {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    class ExternalMergeVisualizer {
+      constructor() {
+        this.inputData = [];
+        this.runs = [];
+        this.nextPassRuns = [];
+        this.finalOutput = [];
+
+        this.phase = 'INIT';
+        this.passNumber = 0;
+        this.groupsDone = 0;
+        this.comparisons = 0;
+
+        this.makeCursor = 0;
+        this.inputConsumed = 0;
+        this.pendingRuns = [];
+        this.runGeneration = 'internal';
+        this.replInputIdx = 0;
+        this.replActive = [];
+        this.replFrozen = [];
+        this.replCurrent = [];
+        this.replLastOut = -INF;
+        this.replState = 'POP';
+        this.replPopVal = null;
+        this.replIncomingVal = null;
+        this.groupStart = 0;
+        this.activeGroup = [];
+        this.groupOutput = [];
+        this.groupRunIdCounter = 0;
+
+        this.algorithm = 'linear';
+        this.lstate = null;
+        this.scanIndex = 0;
+        this.minCandidateIdx = 0;
+        this.candidates = [];
+        this.linearDrainQueue = [];
+        this.linearDrainRunLocalIdx = -1;
+        this.linearDrainSecond = INF;
+
+        this.hstate = null;
+        this.heap = [];
+        this.siftIndex = -1;
+        this.compareTarget = -1;
+        this.secondSmallest = INF;
+        this.heapDrainQueue = [];
+        this.heapDrainNextVal = INF;
+        this.heapDrainRunLocalIdx = -1;
+
+        this.isPlaying = false;
+        this.playTimer = null;
+        this.resizeObserver = null;
+        this.tapeBuilt = false;
+        this.renderedInputConsumed = 0;
+        this.renderedGroupOutputCount = 0;
+        this.renderedFinalCount = 0;
+        this.fileData = null;
+        this.fileName = '';
+        this.fileMaxBytes = 2 * 1024 * 1024;
+        this.fileMaxItems = 5000;
+        this.runInputMin = 2;
+        this.runInputMax = 5000;
+        this.fanInMin = 2;
+        this.fanInMax = 16;
+
+        this.bindControls();
+        this.init();
+      }
+
+      bindControls() {
+        document.getElementById('stepBtn').addEventListener('click', () => this.step());
+        document.getElementById('playBtn').addEventListener('click', () => this.togglePlay());
+        document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+        document.getElementById('speedSlider').addEventListener('input', () => this.updateDelayDisplay());
+        document.getElementById('runGenSelect').addEventListener('change', () => this.updateRunSizeLabel());
+        document.getElementById('dataSourceSelect').addEventListener('change', () => this.updateDataSourceControls());
+        document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileInput(e));
+        ['seedInput', 'nInput', 'runInput', 'fanInInput'].forEach((id) => {
+          const el = document.getElementById(id);
+          el.addEventListener('input', () => {
+            el.value = el.value.replace(/[^0-9]/g, '');
+          });
+        });
+        document.getElementById('runInput').addEventListener('blur', () => this.enforceNumericLimits('runInput', this.runInputMin, this.runInputMax, 8));
+        document.getElementById('fanInInput').addEventListener('blur', () => this.enforceNumericLimits('fanInInput', this.fanInMin, this.fanInMax, 4));
+
+        if (typeof ResizeObserver !== 'undefined') {
+          this.resizeObserver = new ResizeObserver(() => this.renderWorkspace());
+          this.resizeObserver.observe(document.getElementById('scanContainer'));
+        }
+      }
+
+      enforceNumericLimits(id, min, max, fallback) {
+        const el = document.getElementById(id);
+        let v = parseInt(el.value, 10);
+        if (Number.isNaN(v)) v = fallback;
+        if (v < min) v = min;
+        if (v > max) v = max;
+        el.value = String(v);
+      }
+
+      updateRunSizeLabel() {
+        const runGen = document.getElementById('runGenSelect').value;
+        const label = document.getElementById('runSizeLabel');
+        if (label) {
+          const base = runGen === 'replacement' ? 'Heap Size' : 'Run Size';
+          label.textContent = `${base} (<=${this.runInputMax})`;
+        }
+        const fanLabel = document.getElementById('fanInLabel');
+        if (fanLabel) fanLabel.textContent = `Fan-In (<=${this.fanInMax})`;
+      }
+
+      updateDataSourceControls() {
+        const mode = document.getElementById('dataSourceSelect').value;
+        const seedInput = document.getElementById('seedInput');
+        const nInput = document.getElementById('nInput');
+        const fileInput = document.getElementById('fileInput');
+        const fileStatus = document.getElementById('fileStatus');
+        const seedBox = seedInput.closest('.control-box');
+        const nBox = nInput.closest('.control-box');
+
+        const randomMode = mode === 'random';
+        seedInput.disabled = !randomMode;
+        nInput.disabled = !randomMode;
+        fileInput.disabled = randomMode;
+        fileInput.style.opacity = randomMode ? '0.55' : '1';
+        if (seedBox) {
+          seedBox.classList.toggle('disabled', !randomMode);
+          seedBox.title = randomMode ? '' : 'Disabled in file mode';
+        }
+        if (nBox) {
+          nBox.classList.toggle('disabled', !randomMode);
+          nBox.title = randomMode ? '' : 'Disabled in file mode';
+        }
+
+        if (randomMode) {
+          fileStatus.textContent = this.fileData && this.fileName
+            ? `File loaded (${this.fileName}) but random mode is active.`
+            : 'No file loaded.';
+        } else if (!this.fileData) {
+          fileStatus.textContent = 'Select a file to load input data.';
+        } else {
+          fileStatus.textContent = `Loaded ${this.fileData.length} values from ${this.fileName}.`;
+        }
+      }
+
+      parseNumbersFromText(text) {
+        const normalized = text.trim();
+        if (!normalized) return [];
+        if (normalized.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(normalized);
+            if (!Array.isArray(parsed)) throw new Error('JSON root must be an array.');
+            return parsed;
+          } catch (e) {
+            throw new Error('Invalid JSON array format.');
+          }
+        }
+        return normalized.split(/[\s,]+/).filter((t) => t.length > 0);
+      }
+
+      handleFileInput(event) {
+        const fileStatus = document.getElementById('fileStatus');
+        const file = event.target.files && event.target.files[0] ? event.target.files[0] : null;
+        if (!file) {
+          this.fileData = null;
+          this.fileName = '';
+          fileStatus.textContent = 'No file loaded.';
+          return;
+        }
+        if (file.size > this.fileMaxBytes) {
+          this.fileData = null;
+          this.fileName = '';
+          event.target.value = '';
+          fileStatus.textContent = `Rejected: file exceeds ${Math.floor(this.fileMaxBytes / (1024 * 1024))} MB.`;
+          return;
+        }
+
+        const ext = file.name.toLowerCase();
+        const isBin = ext.endsWith('.bin');
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            let values = [];
+            if (isBin) {
+              const buf = reader.result;
+              if (!(buf instanceof ArrayBuffer)) throw new Error('Invalid .bin file read result.');
+              if (buf.byteLength % 8 !== 0) throw new Error('.bin size must be a multiple of 8 bytes (float64).');
+              const count = buf.byteLength / 8;
+              if (count > this.fileMaxItems) throw new Error(`Too many values (max ${this.fileMaxItems}).`);
+              const view = new DataView(buf);
+              values = new Array(count);
+              for (let i = 0; i < count; i++) values[i] = view.getFloat64(i * 8, true);
+            } else {
+              const raw = typeof reader.result === 'string' ? reader.result : '';
+              const tokens = this.parseNumbersFromText(raw);
+              if (!tokens.length) throw new Error('No numeric values found.');
+              if (tokens.length > this.fileMaxItems) throw new Error(`Too many values (max ${this.fileMaxItems}).`);
+              values = tokens.map((v) => Number(v));
+            }
+            if (values.some((v) => !Number.isFinite(v))) throw new Error('Only finite numeric values are allowed.');
+            this.fileData = values;
+            this.fileName = file.name;
+            fileStatus.textContent = `Loaded ${values.length} values from ${file.name}.`;
+            if (document.getElementById('dataSourceSelect').value === 'file') {
+              this.reset();
+            }
+          } catch (err) {
+            this.fileData = null;
+            this.fileName = '';
+            event.target.value = '';
+            fileStatus.textContent = `Rejected: ${err.message}`;
+          }
+        };
+        reader.onerror = () => {
+          this.fileData = null;
+          this.fileName = '';
+          event.target.value = '';
+          fileStatus.textContent = 'Rejected: failed to read file.';
+        };
+        if (isBin) reader.readAsArrayBuffer(file);
+        else reader.readAsText(file);
+      }
+
+      insertSorted(arr, value) {
+        let lo = 0;
+        let hi = arr.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (arr[mid] <= value) lo = mid + 1;
+          else hi = mid;
+        }
+        arr.splice(lo, 0, value);
+      }
+
+      buildInternalRuns(data, runItems) {
+        const runs = [];
+        for (let start = 0; start < data.length; start += runItems) {
+          const end = Math.min(start + runItems, data.length);
+          const sorted = data.slice(start, end).sort((a, b) => a - b);
+          runs.push({ data: sorted, consumed: end });
+        }
+        return runs;
+      }
+
+      buildReplacementRuns(data, memoryItems) {
+        const runs = [];
+        if (!data.length) return runs;
+
+        let srcIdx = 0;
+        const initSize = Math.min(memoryItems, data.length);
+        let active = data.slice(0, initSize).sort((a, b) => a - b);
+        srcIdx = initSize;
+        let frozen = [];
+        let currentRun = [];
+        let lastOut = -INF;
+
+        while (active.length) {
+          const x = active.shift();
+          currentRun.push(x);
+          lastOut = x;
+
+          if (srcIdx < data.length) {
+            const nxt = data[srcIdx];
+            srcIdx += 1;
+            if (nxt >= lastOut) this.insertSorted(active, nxt);
+            else frozen.push(nxt);
+          }
+
+          if (!active.length) {
+            runs.push({ data: currentRun.slice(), consumed: srcIdx });
+            currentRun = [];
+            if (frozen.length) {
+              active = frozen.sort((a, b) => a - b);
+              frozen = [];
+              lastOut = -INF;
+            }
+          }
+        }
+        return runs;
+      }
+
+      initReplacementState() {
+        this.replInputIdx = 0;
+        this.replActive = [];
+        this.replFrozen = [];
+        this.replCurrent = [];
+        this.replLastOut = -INF;
+        this.replState = 'POP';
+        this.replPopVal = null;
+        this.replIncomingVal = null;
+
+        if (!this.inputData.length) return;
+        const initSize = Math.min(this.runSize, this.inputData.length);
+        this.replActive = this.inputData.slice(0, initSize).sort((a, b) => a - b);
+        this.replInputIdx = initSize;
+        this.inputConsumed = initSize;
+      }
+
+      replacementDone() {
+        return this.replInputIdx >= this.inputData.length && this.replActive.length === 0 && this.replFrozen.length === 0;
+      }
+
+      stepReplacementSelection() {
+        if (this.replState === 'POP') {
+          if (!this.replActive.length) {
+            if (this.replCurrent.length) {
+              const closedRun = this.replCurrent.slice();
+              this.runs.push({ id: `R${this.runs.length}`, data: closedRun, idx: 0 });
+              this.makeCursor += 1;
+              this.replCurrent = [];
+              this.updateStatus(`Run ${this.runs.length - 1} created via replacement (${closedRun.length} items).`);
+              return true;
+            }
+
+            if (this.replFrozen.length) {
+              this.replActive = this.replFrozen.sort((a, b) => a - b);
+              this.replFrozen = [];
+              this.replLastOut = -INF;
+              this.updateStatus('Active heap refilled from frozen buffer.');
+              return true;
+            }
+            return false;
+          }
+
+          const popped = this.replActive.shift();
+          this.replPopVal = popped;
+          this.replCurrent.push(popped);
+          this.replLastOut = popped;
+          this.replState = 'READ';
+          this.updateStatus(`Replacement: popped ${popped} from active heap.`);
+          return true;
+        }
+
+        if (this.replState === 'READ') {
+          if (this.replInputIdx < this.inputData.length) {
+            this.replIncomingVal = this.inputData[this.replInputIdx];
+            this.replInputIdx += 1;
+            this.inputConsumed = Math.max(this.inputConsumed, this.replInputIdx);
+            this.replState = 'PLACE';
+            this.updateStatus(`Replacement: read incoming value ${this.replIncomingVal}.`);
+            return true;
+          }
+
+          this.replIncomingVal = null;
+          this.replState = 'POP';
+          this.updateStatus('Replacement: no more input, continue draining active heap.');
+          return true;
+        }
+
+        if (this.replState === 'PLACE') {
+          if (this.replIncomingVal !== null) {
+            if (this.replIncomingVal >= this.replLastOut) {
+              this.insertSorted(this.replActive, this.replIncomingVal);
+              this.updateStatus(`Replacement: placed ${this.replIncomingVal} into active heap.`);
+            } else {
+              this.replFrozen.push(this.replIncomingVal);
+              this.updateStatus(`Replacement: placed ${this.replIncomingVal} into frozen buffer.`);
+            }
+          }
+          this.replIncomingVal = null;
+          this.replState = 'POP';
+          return true;
+        }
+        return false;
+      }
+
+      prepareRunPlan() {
+        if (this.runGeneration === 'replacement') {
+          this.pendingRuns = this.buildReplacementRuns(this.inputData, this.runSize);
+        } else {
+          this.pendingRuns = this.buildInternalRuns(this.inputData, this.runSize);
+        }
+      }
+
+      readInt(id, fallback, min = 1, max = 500) {
+        const el = document.getElementById(id);
+        const parsed = parseInt(el.value, 10);
+        if (Number.isNaN(parsed)) return fallback;
+        return Math.max(min, Math.min(max, parsed));
+      }
+
+      chooseAlgorithm(k) {
+        const mode = document.getElementById('strategySelect').value;
+        if (mode === 'linear' || mode === 'heap') return mode;
+        return this.useHeapForK(k) ? 'heap' : 'linear';
+      }
+
+      getDrainMode() {
+        const el = document.getElementById('drainModeSelect');
+        return el ? el.value : 'stepwise';
+      }
+
+      useHeapForK(k, c = 6.0, maxArgminK = 32) {
+        if (k <= 1) return false;
+        if (k > maxArgminK) return true;
+        return k > (Math.log2(k) * c);
+      }
+
+      updateStatus(msg) {
+        document.getElementById('status').textContent = msg;
+      }
+
+      valStr(v) {
+        if (v === INF) return 'inf';
+        if (v === -INF) return '-inf';
+        return String(v);
+      }
+
+      getDelayMs() {
+        const raw = parseInt(document.getElementById('speedSlider').value, 10);
+        return 2100 - raw;
+      }
+
+      updateDelayDisplay() {
+        document.getElementById('delayValue').textContent = `Delay: ${this.getDelayMs()} ms`;
+      }
+
+      getCandidate(idx) {
+        if (idx < 0 || idx >= this.candidates.length) return null;
+        return this.candidates[idx];
+      }
+
+      getCandidateVal(idx) {
+        const c = this.getCandidate(idx);
+        return (c && typeof c.val === 'number') ? c.val : INF;
+      }
+
+      getSecondCandidateVal(excludeIdx) {
+        let second = INF;
+        for (let i = 0; i < this.candidates.length; i++) {
+          if (i === excludeIdx) continue;
+          const v = this.getCandidateVal(i);
+          if (v < second) second = v;
+        }
+        return second;
+      }
+
+      getSecondRunHeadVal(excludeLocalIdx) {
+        let second = INF;
+        for (let i = 0; i < this.activeGroup.length; i++) {
+          if (i === excludeLocalIdx) continue;
+          const v = this.getRunVal(i);
+          if (v < second) second = v;
+        }
+        return second;
+      }
+
+      getSecondSmallestValFromHeap() {
+        if (this.heap.length <= 1) return INF;
+        if (this.heap.length === 2) return this.getHeapVal(1);
+        return Math.min(this.getHeapVal(1), this.getHeapVal(2));
+      }
+
+      getHeapItem(idx) {
+        if (idx < 0 || idx >= this.heap.length) return null;
+        return this.heap[idx];
+      }
+
+      getHeapVal(idx) {
+        const item = this.getHeapItem(idx);
+        return item && typeof item.val === 'number' ? item.val : INF;
+      }
+
+      updateStats() {
+        document.getElementById('comparison-counter').textContent = `Comparisons: ${this.comparisons}`;
+        document.getElementById('statPhase').textContent = this.phase;
+        document.getElementById('statPass').textContent = String(this.passNumber);
+        document.getElementById('statGroups').textContent = String(this.groupsDone);
+        document.getElementById('statRuns').textContent = String(this.runs.length);
+      }
+
+      incComparison() {
+        this.comparisons += 1;
+        this.updateStats();
+      }
+
+      init() {
+        const seed = this.readInt('seedInput', 42, 0, 9999999);
+        const n = this.readInt('nInput', 40, 8, 5000);
+
+        this.enforceNumericLimits('runInput', this.runInputMin, this.runInputMax, 8);
+        this.enforceNumericLimits('fanInInput', this.fanInMin, this.fanInMax, 4);
+        this.runSize = this.readInt('runInput', 8, this.runInputMin, this.runInputMax);
+        this.fanIn = this.readInt('fanInInput', 4, this.fanInMin, this.fanInMax);
+        this.runGeneration = document.getElementById('runGenSelect').value;
+        const dataSource = document.getElementById('dataSourceSelect').value;
+
+        this.inputData = [];
+        if (dataSource === 'file' && this.fileData && this.fileData.length) {
+          this.inputData = this.fileData.slice(0, this.fileMaxItems);
+        } else {
+          const rnd = mulberry32(seed);
+          for (let i = 0; i < n; i++) {
+            this.inputData.push(Math.floor(rnd() * 900) + 100);
+          }
+        }
+
+        this.runs = [];
+        this.nextPassRuns = [];
+        this.finalOutput = [];
+
+        this.phase = 'MAKE_RUNS';
+        this.passNumber = 0;
+        this.groupsDone = 0;
+        this.comparisons = 0;
+
+        this.makeCursor = 0;
+        this.inputConsumed = 0;
+        this.pendingRuns = [];
+        this.replInputIdx = 0;
+        this.replActive = [];
+        this.replFrozen = [];
+        this.replCurrent = [];
+        this.replLastOut = -INF;
+        this.replState = 'POP';
+        this.replPopVal = null;
+        this.replIncomingVal = null;
+        this.groupStart = 0;
+        this.activeGroup = [];
+        this.groupOutput = [];
+        this.groupRunIdCounter = 0;
+
+        this.algorithm = 'linear';
+        this.lstate = null;
+        this.hstate = null;
+        this.candidates = [];
+        this.heap = [];
+        this.scanIndex = 0;
+        this.minCandidateIdx = 0;
+        this.siftIndex = -1;
+        this.compareTarget = -1;
+        this.secondSmallest = INF;
+        this.linearDrainQueue = [];
+        this.linearDrainRunLocalIdx = -1;
+        this.linearDrainSecond = INF;
+        this.heapDrainQueue = [];
+        this.heapDrainNextVal = INF;
+        this.heapDrainRunLocalIdx = -1;
+        this.tapeBuilt = false;
+        this.renderedInputConsumed = 0;
+        this.renderedGroupOutputCount = 0;
+        this.renderedFinalCount = 0;
+        const replacementPanel = document.getElementById('replacementPanel');
+        if (replacementPanel) replacementPanel.style.display = 'none';
+        this.updateRunSizeLabel();
+        this.updateDataSourceControls();
+
+        if (this.runGeneration === 'replacement') this.initReplacementState();
+        else this.prepareRunPlan();
+        if (dataSource === 'file' && !(this.fileData && this.fileData.length)) {
+          this.updateStatus(`File mode selected but no valid file loaded. Using random generated input.`);
+        } else {
+          this.updateStatus(`Initialized input tape. Ready to generate runs via ${this.runGeneration}.`);
+        }
+        this.updateDelayDisplay();
+        this.render();
+      }
+
+      reset() {
+        this.stopPlay();
+        document.getElementById('stepBtn').disabled = false;
+        this.init();
+      }
+
+      getRunVal(localIdx) {
+        const r = this.activeGroup[localIdx];
+        if (!r) return INF;
+        return r.idx >= r.data.length ? INF : r.data[r.idx];
+      }
+
+      pushGroupOutput(value) {
+        this.groupOutput.push(value);
+      }
+
+      finishActiveGroup() {
+        const newRun = {
+          id: `P${this.passNumber}_R${this.groupRunIdCounter++}`,
+          data: this.groupOutput.slice(),
+          idx: 0
+        };
+
+        this.nextPassRuns.push(newRun);
+        this.groupsDone += 1;
+        this.groupStart += this.fanIn;
+
+        this.activeGroup = [];
+        this.groupOutput = [];
+        this.candidates = [];
+        this.heap = [];
+        this.lstate = null;
+        this.hstate = null;
+        this.secondSmallest = INF;
+        this.linearDrainQueue = [];
+        this.linearDrainRunLocalIdx = -1;
+        this.linearDrainSecond = INF;
+        this.heapDrainQueue = [];
+        this.heapDrainNextVal = INF;
+        this.heapDrainRunLocalIdx = -1;
+        this.renderedGroupOutputCount = 0;
+      }
+
+      stepLinear() {
+        if (this.lstate === 'START_SCAN') {
+          if (!this.candidates.length) {
+            this.finishActiveGroup();
+            this.phase = 'PREP_GROUP';
+            this.updateStatus('No candidates found. Moving to next group.');
+            return true;
+          }
+          const vals = this.candidates.map((c, i) => this.getCandidateVal(i));
+          const finiteIdx = vals.findIndex(v => v !== INF);
+          if (finiteIdx === -1) {
+            this.finishActiveGroup();
+            this.phase = 'PREP_GROUP';
+            this.updateStatus('Group merged. Moving to next group.');
+            return true;
+          }
+
+          this.minCandidateIdx = finiteIdx;
+          this.scanIndex = finiteIdx + 1;
+          this.lstate = 'SCAN';
+          const first = this.getCandidate(this.minCandidateIdx);
+          this.updateStatus(`Linear scan started. Current min is ${first ? first.runId : 'none'}.`);
+          return true;
+        }
+
+        if (this.lstate === 'SCAN') {
+          if (this.scanIndex >= this.candidates.length) {
+            this.lstate = 'OUTPUT';
+            this.updateStatus(`Scan complete. Winner value: ${this.valStr(this.getCandidateVal(this.minCandidateIdx))}.`);
+            return true;
+          }
+
+          const cur = this.getCandidateVal(this.scanIndex);
+          const min = this.getCandidateVal(this.minCandidateIdx);
+
+          // Skip depleted candidates entirely in argmin/linear scan.
+          if (cur === INF) {
+            this.scanIndex += 1;
+            return true;
+          }
+          if (min === INF) {
+            this.minCandidateIdx = this.scanIndex;
+            this.scanIndex += 1;
+            return true;
+          }
+
+          this.incComparison();
+          if (cur < min) this.minCandidateIdx = this.scanIndex;
+          this.scanIndex += 1;
+          return true;
+        }
+
+        if (this.lstate === 'OUTPUT') {
+          const winner = this.getCandidate(this.minCandidateIdx);
+          if (!winner || winner.val === INF) {
+            this.lstate = 'START_SCAN';
+            return true;
+          }
+          this.pushGroupOutput(winner.val);
+
+          const run = this.activeGroup[winner.localIdx];
+          if (!run) {
+            this.finishActiveGroup();
+            this.phase = 'PREP_GROUP';
+            this.updateStatus('Run reference missing. Moving to next group.');
+            return true;
+          }
+          run.idx += 1;
+
+          const second = this.getSecondRunHeadVal(winner.localIdx);
+          this.linearDrainSecond = second;
+          this.linearDrainRunLocalIdx = winner.localIdx;
+          this.linearDrainQueue = [];
+          let probe = run.idx;
+          while (probe < run.data.length) {
+            const nxt = run.data[probe];
+            if (nxt === INF) break;
+            if (second !== INF && nxt > second) break;
+            this.linearDrainQueue.push(nxt);
+            probe += 1;
+          }
+
+          if (this.linearDrainQueue.length) {
+            if (this.getDrainMode() === 'instant') {
+              let emitted = 0;
+              while (this.linearDrainQueue.length) {
+                const v = this.linearDrainQueue.shift();
+                this.pushGroupOutput(v);
+                if (this.linearDrainSecond !== INF) this.incComparison();
+                run.idx += 1;
+                emitted += 1;
+              }
+              const c = this.getCandidate(this.minCandidateIdx);
+              if (c && emitted > 0) c.val = this.groupOutput[this.groupOutput.length - 1];
+              this.lstate = 'REFILL';
+              this.updateStatus(`Output ${winner.val}. Instant-drained ${emitted} from ${winner.runId}.`);
+            } else {
+              this.lstate = 'DRAIN_EMIT';
+              this.updateStatus(`Output ${winner.val}. Draining ${this.linearDrainQueue.length} more from ${winner.runId}.`);
+            }
+          } else {
+            this.lstate = 'REFILL';
+            this.updateStatus(`Output ${winner.val}. Advancing run ${winner.runId}.`);
+          }
+          return true;
+        }
+
+        if (this.lstate === 'DRAIN_EMIT') {
+          if (!this.linearDrainQueue.length) {
+            this.lstate = 'REFILL';
+            return true;
+          }
+          const v = this.linearDrainQueue.shift();
+          this.pushGroupOutput(v);
+          if (this.linearDrainSecond !== INF) this.incComparison();
+          const run = this.activeGroup[this.linearDrainRunLocalIdx];
+          if (run) run.idx += 1;
+          const c = this.getCandidate(this.minCandidateIdx);
+          if (c) c.val = v;
+          if (!this.linearDrainQueue.length) {
+            this.lstate = 'REFILL';
+            this.updateStatus('Linear drain complete. Refilling winner run head.');
+          } else {
+            this.updateStatus(`Linear drain emitted ${v}. Remaining: ${this.linearDrainQueue.length}.`);
+          }
+          return true;
+        }
+
+        if (this.lstate === 'REFILL') {
+          const w = this.getCandidate(this.minCandidateIdx);
+          if (!w) {
+            this.lstate = 'START_SCAN';
+            return true;
+          }
+          const nextVal = this.getRunVal(w.localIdx);
+          if (nextVal === INF) {
+            // Python argmin merge compacts active heads; mirror that in visualization.
+            this.candidates.splice(this.minCandidateIdx, 1);
+            if (!this.candidates.length) {
+              this.finishActiveGroup();
+              this.phase = 'PREP_GROUP';
+              this.updateStatus(`Run ${w.runId} exhausted; group complete.`);
+              return true;
+            }
+            this.minCandidateIdx = 0;
+          } else {
+            this.candidates[this.minCandidateIdx] = {
+              ...w,
+              val: nextVal
+            };
+          }
+          this.lstate = 'START_SCAN';
+          return true;
+        }
+
+        return false;
+      }
+
+      stepHeap() {
+        if (this.hstate === 'POP') {
+          if (!this.heap.length || this.getHeapVal(0) === INF) {
+            this.finishActiveGroup();
+            this.phase = 'PREP_GROUP';
+            this.updateStatus('Group merged. Moving to next group.');
+            return true;
+          }
+
+          if (this.heap.length === 1) {
+            const only = this.getHeapItem(0);
+            if (!only) {
+              this.finishActiveGroup();
+              this.phase = 'PREP_GROUP';
+              return true;
+            }
+            this.pushGroupOutput(only.val);
+            const onlyRun = this.activeGroup[only.localIdx];
+            if (!onlyRun) {
+              this.finishActiveGroup();
+              this.phase = 'PREP_GROUP';
+              return true;
+            }
+            onlyRun.idx += 1;
+            while (true) {
+              const nxt = this.getRunVal(only.localIdx);
+              if (nxt === INF) break;
+              this.pushGroupOutput(nxt);
+              onlyRun.idx += 1;
+            }
+            this.finishActiveGroup();
+            this.phase = 'PREP_GROUP';
+            this.updateStatus(`Single-run fast path drained ${only.runId}.`);
+            return true;
+          }
+
+          const root = this.getHeapItem(0);
+          if (!root) {
+            this.finishActiveGroup();
+            this.phase = 'PREP_GROUP';
+            return true;
+          }
+          this.pushGroupOutput(root.val);
+          const rootRun = this.activeGroup[root.localIdx];
+          if (!rootRun) {
+            this.finishActiveGroup();
+            this.phase = 'PREP_GROUP';
+            return true;
+          }
+          rootRun.idx += 1;
+          this.secondSmallest = this.getSecondSmallestValFromHeap();
+          this.heapDrainRunLocalIdx = root.localIdx;
+          this.heapDrainQueue = [];
+          let probe = rootRun.idx;
+          while (probe < rootRun.data.length) {
+            const v = rootRun.data[probe];
+            if (v > this.secondSmallest) break;
+            this.heapDrainQueue.push(v);
+            probe += 1;
+          }
+          this.heapDrainNextVal = probe < rootRun.data.length ? rootRun.data[probe] : INF;
+          this.hstate = 'ROOT_DRAIN';
+          this.updateStatus(`Popped ${root.val} from ${root.runId}.`);
+          return true;
+        }
+
+        if (this.hstate === 'ROOT_DRAIN') {
+          const root = this.getHeapItem(0);
+          if (!root) {
+            this.hstate = 'POP';
+            return true;
+          }
+          const rootRun = this.activeGroup[root.localIdx];
+          if (!rootRun) {
+            this.finishActiveGroup();
+            this.phase = 'PREP_GROUP';
+            return true;
+          }
+          let emitted = 0;
+          if (this.getDrainMode() === 'instant') {
+            while (this.heapDrainQueue.length) {
+              const v = this.heapDrainQueue.shift();
+              root.val = v;
+              this.pushGroupOutput(v);
+              rootRun.idx += 1;
+              if (this.secondSmallest !== INF) this.incComparison();
+              emitted += 1;
+            }
+          } else {
+            if (this.heapDrainQueue.length) {
+              const v = this.heapDrainQueue.shift();
+              root.val = v;
+              this.pushGroupOutput(v);
+              rootRun.idx += 1;
+              if (this.secondSmallest !== INF) this.incComparison();
+              this.updateStatus(`Root-drain emitted ${v}. Remaining: ${this.heapDrainQueue.length}.`);
+              return true;
+            }
+          }
+
+          const nextVal = this.heapDrainNextVal;
+          if (nextVal === INF) {
+            this.heap[0] = this.heap[this.heap.length - 1];
+            this.heap.pop();
+            if (this.heap.length) {
+              this.siftIndex = 0;
+              this.compareTarget = -1;
+              this.hstate = 'SIFT_COMPARE';
+            } else {
+              this.hstate = 'POP';
+            }
+            this.updateStatus(emitted > 0
+              ? `Root-drain emitted ${emitted} values, then removed depleted ${root.runId}.`
+              : `Removed depleted ${root.runId}.`);
+            return true;
+          }
+
+          if (this.secondSmallest !== INF) this.incComparison();
+          root.val = nextVal;
+          this.siftIndex = 0;
+          this.compareTarget = -1;
+          this.hstate = 'SIFT_COMPARE';
+          this.updateStatus(emitted > 0
+            ? `Root-drain emitted ${emitted} values; now reheapify.`
+            : `Root value exceeded second-smallest; reheapify.`);
+          return true;
+        }
+
+        if (this.hstate === 'SIFT_COMPARE') {
+          if (!this.getHeapItem(this.siftIndex)) {
+            this.hstate = 'POP';
+            return true;
+          }
+          const left = 2 * this.siftIndex + 1;
+          const right = 2 * this.siftIndex + 2;
+          let smallest = this.siftIndex;
+
+          if (left < this.heap.length) {
+            this.incComparison();
+            if (this.getHeapVal(left) < this.getHeapVal(smallest)) smallest = left;
+          }
+
+          if (right < this.heap.length) {
+            this.incComparison();
+            if (this.getHeapVal(right) < this.getHeapVal(smallest)) smallest = right;
+          }
+
+          if (smallest !== this.siftIndex) {
+            this.compareTarget = smallest;
+            this.hstate = 'SIFT_SWAP';
+            this.updateStatus(`Heap swap needed (${this.valStr(this.getHeapVal(this.siftIndex))} > ${this.valStr(this.getHeapVal(smallest))}).`);
+          } else {
+            this.hstate = 'POP';
+            this.updateStatus('Heap property restored.');
+          }
+          return true;
+        }
+
+        if (this.hstate === 'SIFT_SWAP') {
+          const a = this.siftIndex;
+          const b = this.compareTarget;
+          if (!this.getHeapItem(a) || !this.getHeapItem(b)) {
+            this.hstate = 'POP';
+            this.compareTarget = -1;
+            return true;
+          }
+          const t = this.heap[a];
+          this.heap[a] = this.heap[b];
+          this.heap[b] = t;
+          this.siftIndex = b;
+          this.compareTarget = -1;
+          this.hstate = 'SIFT_COMPARE';
+          return true;
+        }
+
+        return false;
+      }
+
+      step() {
+        if (this.phase === 'DONE') return false;
+
+        if (this.phase === 'MAKE_RUNS') {
+          if (this.runGeneration === 'replacement') {
+            const keepGoing = this.stepReplacementSelection();
+            if (!keepGoing && this.replacementDone()) {
+              this.replCurrent = [];
+              this.phase = 'START_PASS';
+              this.updateStatus(`Created ${this.runs.length} initial runs. Preparing merge pass.`);
+              this.render();
+              return true;
+            }
+            this.render();
+            return true;
+          }
+
+          if (this.makeCursor >= this.pendingRuns.length) {
+            this.phase = 'START_PASS';
+            this.updateStatus(`Created ${this.runs.length} initial runs. Preparing merge pass.`);
+            this.render();
+            return true;
+          }
+
+          const planned = this.pendingRuns[this.makeCursor];
+          const runData = planned && Array.isArray(planned.data) ? planned.data : [];
+          const consumed = (planned && Number.isFinite(planned.consumed)) ? planned.consumed : this.inputConsumed;
+          this.runs.push({ id: `R${this.runs.length}`, data: runData.slice(), idx: 0 });
+          this.makeCursor += 1;
+          this.inputConsumed = Math.max(this.inputConsumed, consumed);
+          this.updateStatus(`Run ${this.runs.length - 1} created via ${this.runGeneration} (${runData.length} items).`);
+          this.render();
+          return true;
+        }
+
+        if (this.phase === 'START_PASS') {
+          if (this.runs.length <= 1) {
+            this.finalOutput = this.runs.length === 1 ? this.runs[0].data.slice() : [];
+            this.phase = 'DONE';
+            this.updateStatus('External merge sort complete.');
+            this.render();
+            return false;
+          }
+
+          this.passNumber += 1;
+          this.groupStart = 0;
+          this.nextPassRuns = [];
+          this.groupRunIdCounter = 0;
+          this.phase = 'PREP_GROUP';
+          this.updateStatus(`Pass ${this.passNumber} started.`);
+          this.render();
+          return true;
+        }
+
+        if (this.phase === 'PREP_GROUP') {
+          if (this.groupStart >= this.runs.length) {
+            this.runs = this.nextPassRuns.map(r => ({ ...r, idx: 0 }));
+            this.phase = 'START_PASS';
+            this.updateStatus(`Pass ${this.passNumber} finished. ${this.runs.length} runs remain.`);
+            this.render();
+            return true;
+          }
+
+          const group = this.runs.slice(this.groupStart, this.groupStart + this.fanIn);
+          this.activeGroup = group.map(r => ({ id: r.id, data: r.data.slice(), idx: 0 }));
+          this.groupOutput = [];
+          this.algorithm = this.chooseAlgorithm(this.activeGroup.length);
+
+          if (this.algorithm === 'linear') {
+            this.candidates = this.activeGroup.map((r, localIdx) => ({
+              val: r.data[0],
+              localIdx,
+              runId: r.id
+            })).filter((c) => Number.isFinite(c.val));
+            this.lstate = 'START_SCAN';
+          } else {
+            this.heap = this.activeGroup.map((r, localIdx) => ({
+              val: r.data[0],
+              localIdx,
+              runId: r.id
+            })).filter((h) => Number.isFinite(h.val));
+
+            for (let i = Math.floor(this.heap.length / 2) - 1; i >= 0; i--) {
+              this.heapifyDown(i);
+            }
+
+            this.hstate = 'POP';
+          }
+
+          this.phase = 'MERGE_GROUP';
+          this.updateStatus(`Merging runs ${this.activeGroup.map(r => r.id).join(', ')} using ${this.algorithm}.`);
+          this.render();
+          return true;
+        }
+
+        if (this.phase === 'MERGE_GROUP') {
+          const keepGoing = this.algorithm === 'linear' ? this.stepLinear() : this.stepHeap();
+          this.render();
+          return keepGoing;
+        }
+
+        return false;
+      }
+
+      heapifyDown(i) {
+        while (true) {
+          const left = 2 * i + 1;
+          const right = 2 * i + 2;
+          let smallest = i;
+
+          if (left < this.heap.length && this.getHeapVal(left) < this.getHeapVal(smallest)) smallest = left;
+          if (right < this.heap.length && this.getHeapVal(right) < this.getHeapVal(smallest)) smallest = right;
+
+          if (smallest === i) break;
+          const t = this.heap[i];
+          this.heap[i] = this.heap[smallest];
+          this.heap[smallest] = t;
+          i = smallest;
+        }
+      }
+
+      togglePlay() {
+        if (this.isPlaying) this.stopPlay();
+        else this.startPlay();
+      }
+
+      startPlay() {
+        if (document.getElementById('stepBtn').disabled) return;
+        this.isPlaying = true;
+        const btn = document.getElementById('playBtn');
+        btn.textContent = 'Pause';
+        btn.classList.add('paused');
+        document.getElementById('stepBtn').disabled = true;
+        this.runLoop();
+      }
+
+      stopPlay() {
+        this.isPlaying = false;
+        if (this.playTimer) clearTimeout(this.playTimer);
+        const btn = document.getElementById('playBtn');
+        btn.textContent = 'Play';
+        btn.classList.remove('paused');
+        if (this.phase !== 'DONE') document.getElementById('stepBtn').disabled = false;
+      }
+
+      runLoop() {
+        if (!this.isPlaying) return;
+        const keepGoing = this.step();
+        if (!keepGoing) {
+          this.stopPlay();
+          if (this.phase === 'DONE') document.getElementById('stepBtn').disabled = true;
+          return;
+        }
+
+        const speed = this.getDelayMs();
+        this.playTimer = setTimeout(() => this.runLoop(), speed);
+      }
+
+      renderTape() {
+        const el = document.getElementById('inputTape');
+        if (!this.tapeBuilt || el.childElementCount !== this.inputData.length) {
+          while (el.firstChild) el.removeChild(el.firstChild);
+          const frag = document.createDocumentFragment();
+          this.inputData.forEach((v) => {
+            const d = document.createElement('div');
+            d.className = 'item input';
+            d.textContent = v;
+            frag.appendChild(d);
+          });
+          el.appendChild(frag);
+          this.tapeBuilt = true;
+          this.renderedInputConsumed = 0;
+        }
+
+        if (this.inputConsumed < this.renderedInputConsumed) {
+          for (let i = this.inputConsumed; i < this.renderedInputConsumed; i++) {
+            const child = el.children[i];
+            if (child) child.style.opacity = '';
+          }
+        } else if (this.inputConsumed > this.renderedInputConsumed) {
+          for (let i = this.renderedInputConsumed; i < this.inputConsumed; i++) {
+            const child = el.children[i];
+            if (child) child.style.opacity = '0.45';
+          }
+        }
+        this.renderedInputConsumed = this.inputConsumed;
+      }
+
+      renderRuns(containerId, runs, activeGroup = false) {
+        const panel = document.getElementById(containerId);
+        panel.replaceChildren();
+
+        if (!runs.length) {
+          const empty = document.createElement('div');
+          empty.style.fontSize = '12px';
+          empty.style.color = '#888';
+          empty.textContent = 'No runs';
+          panel.appendChild(empty);
+          return;
+        }
+
+        runs.forEach((r) => {
+          const box = document.createElement('div');
+          box.className = 'run-box';
+
+          const head = document.createElement('div');
+          head.className = 'run-head';
+          head.textContent = `${r.id} (${r.data.length})`;
+
+          const items = document.createElement('div');
+          items.className = 'run-items';
+
+          r.data.forEach((v, idx) => {
+            const span = document.createElement('div');
+            span.className = 'run-item';
+            if (activeGroup && idx < r.idx) span.classList.add('popped');
+            span.textContent = v;
+            items.appendChild(span);
+          });
+
+          box.appendChild(head);
+          box.appendChild(items);
+          panel.appendChild(box);
+        });
+      }
+
+      nodeCoordsLinear(count, width) {
+        const coords = [];
+        const nodeSize = 62;
+        const pad = 8;
+        const minGap = 8;
+        const rowPitch = 76;
+        const usableWidth = Math.max(120, width - pad * 2);
+        const perRow = Math.max(1, Math.floor((usableWidth + minGap) / (nodeSize + minGap)));
+        for (let i = 0; i < count; i++) {
+          const row = Math.floor(i / perRow);
+          const col = i % perRow;
+          const itemsInRow = Math.min(perRow, count - row * perRow);
+          const rowWidth = itemsInRow * nodeSize + (itemsInRow - 1) * minGap;
+          const rowStart = Math.max(pad, Math.floor((width - rowWidth) / 2));
+          const x = rowStart + col * (nodeSize + minGap) + Math.floor(nodeSize / 2);
+          const y = 50 + row * rowPitch;
+          coords.push({ x, y });
+        }
+        const rows = Math.max(1, Math.ceil(count / perRow));
+        const height = 30 + rows * rowPitch;
+        return { coords, height };
+      }
+
+      nodeCoordsHeap(count, width) {
+        const levels = [];
+        for (let i = 0; i < count; i++) {
+          const lv = Math.floor(Math.log2(i + 1));
+          if (!levels[lv]) levels[lv] = [];
+          levels[lv].push(i);
+        }
+
+        const coords = new Array(count);
+        const levelHeight = 70;
+        levels.forEach((indices, lv) => {
+          const y = 45 + lv * levelHeight;
+          const step = width / (indices.length + 1);
+          indices.forEach((idx, j) => {
+            coords[idx] = { x: Math.round(step * (j + 1)), y };
+          });
+        });
+        const height = 30 + Math.max(1, levels.length) * levelHeight;
+        return { coords, height };
+      }
+
+      drawLine(x1, y1, x2, y2) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        document.getElementById('lines').appendChild(line);
+      }
+
+      drawMiniLine(svg, x1, y1, x2, y2) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        svg.appendChild(line);
+      }
+
+      renderWorkspace() {
+        const container = document.getElementById('scanContainer');
+        const label = document.getElementById('workspaceLabel');
+        const groupOutEl = document.getElementById('groupOutput');
+        const frozenOutEl = document.getElementById('frozenOutput');
+        const lines = document.getElementById('lines');
+
+        Array.from(container.querySelectorAll('.node')).forEach((n) => n.remove());
+        lines.replaceChildren();
+
+        if (this.phase === 'MAKE_RUNS' && this.runGeneration === 'replacement') {
+          label.textContent = `Replacement Selection | state: ${this.replState} | incoming: ${this.replIncomingVal === null ? '-' : this.replIncomingVal}`;
+          frozenOutEl.style.display = 'flex';
+          while (frozenOutEl.firstChild) frozenOutEl.removeChild(frozenOutEl.firstChild);
+          this.replFrozen.forEach((v) => {
+            const d = document.createElement('div');
+            d.className = 'item';
+            d.style.background = '#6a1b9a';
+            d.textContent = v;
+            frozenOutEl.appendChild(d);
+          });
+          if (!this.replFrozen.length) {
+            const d = document.createElement('div');
+            d.className = 'item';
+            d.style.background = '#3b3b3b';
+            d.textContent = 'Frozen: empty';
+            frozenOutEl.appendChild(d);
+          }
+          while (groupOutEl.firstChild) groupOutEl.removeChild(groupOutEl.firstChild);
+          this.renderedGroupOutputCount = 0;
+          this.replCurrent.forEach((v) => {
+            const d = document.createElement('div');
+            d.className = 'item mid';
+            d.textContent = v;
+            groupOutEl.appendChild(d);
+          });
+
+          const width = container.clientWidth;
+          const layout = this.nodeCoordsHeap(this.replActive.length, width);
+          const coords = layout.coords;
+          const dynamicHeight = Math.max(180, layout.height);
+          container.style.minHeight = `${dynamicHeight}px`;
+          lines.setAttribute('viewBox', `0 0 ${width} ${dynamicHeight}`);
+          lines.setAttribute('preserveAspectRatio', 'none');
+
+          this.replActive.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'node';
+            div.style.left = `${coords[idx].x - 31}px`;
+            div.style.top = `${coords[idx].y - 31}px`;
+            const valSpan = document.createElement('span');
+            valSpan.className = 'val';
+            valSpan.textContent = this.valStr(item);
+            const idxSpan = document.createElement('span');
+            idxSpan.className = 'idx';
+            idxSpan.textContent = `H${idx}`;
+            div.append(valSpan, idxSpan);
+
+            if (idx === 0 && this.replState === 'POP') div.classList.add('winner');
+            if (idx === 0 && this.replState === 'READ') div.classList.add('scanning');
+            if (idx === 0 && this.replState === 'PLACE') div.classList.add('replacing');
+            container.appendChild(div);
+
+            const left = 2 * idx + 1;
+            const right = 2 * idx + 2;
+            if (left < this.replActive.length) this.drawLine(coords[idx].x, coords[idx].y, coords[left].x, coords[left].y);
+            if (right < this.replActive.length) this.drawLine(coords[idx].x, coords[idx].y, coords[right].x, coords[right].y);
+          });
+          return;
+        }
+        frozenOutEl.style.display = 'none';
+        while (frozenOutEl.firstChild) frozenOutEl.removeChild(frozenOutEl.firstChild);
+
+        // Leaving replacement-run generation: clear any stale replacement output chips.
+        if (this.groupOutput.length === 0 && groupOutEl.childElementCount > 0 && this.renderedGroupOutputCount === 0) {
+          while (groupOutEl.firstChild) groupOutEl.removeChild(groupOutEl.firstChild);
+        }
+
+        if (!this.activeGroup.length) {
+          label.textContent = 'No active group';
+          container.style.minHeight = '90px';
+          lines.setAttribute('viewBox', `0 0 ${container.clientWidth} 90`);
+          lines.setAttribute('preserveAspectRatio', 'none');
+        } else {
+          label.textContent = `Active group: ${this.activeGroup.map(r => r.id).join(', ')} | algorithm: ${this.algorithm}`;
+        }
+
+        if (this.groupOutput.length < this.renderedGroupOutputCount) {
+          while (groupOutEl.firstChild) groupOutEl.removeChild(groupOutEl.firstChild);
+          this.renderedGroupOutputCount = 0;
+        }
+        for (let i = this.renderedGroupOutputCount; i < this.groupOutput.length; i++) {
+          const d = document.createElement('div');
+          d.className = 'item mid';
+          d.textContent = this.groupOutput[i];
+          groupOutEl.appendChild(d);
+        }
+        this.renderedGroupOutputCount = this.groupOutput.length;
+
+        if (!this.activeGroup.length) return;
+
+        const width = container.clientWidth;
+        if (this.algorithm === 'linear') {
+          const layout = this.nodeCoordsLinear(this.candidates.length, width);
+          const coords = layout.coords;
+          const dynamicHeight = Math.max(100, layout.height);
+          container.style.minHeight = `${dynamicHeight}px`;
+          lines.setAttribute('viewBox', `0 0 ${width} ${dynamicHeight}`);
+          lines.setAttribute('preserveAspectRatio', 'none');
+          this.candidates.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'node';
+            div.style.left = `${coords[idx].x - 31}px`;
+            div.style.top = `${coords[idx].y - 31}px`;
+            const valSpan = document.createElement('span');
+            valSpan.className = 'val';
+            valSpan.textContent = this.valStr(item.val);
+            const idxSpan = document.createElement('span');
+            idxSpan.className = 'idx';
+            idxSpan.textContent = item.runId;
+            div.append(valSpan, idxSpan);
+
+            const minCandidate = this.getCandidate(this.minCandidateIdx);
+            if (this.lstate === 'SCAN') {
+              if (minCandidate && idx === this.minCandidateIdx) div.classList.add('current-min');
+              if (idx === this.scanIndex - 1) div.classList.add('scanning');
+            }
+            if (this.lstate === 'OUTPUT' && minCandidate && idx === this.minCandidateIdx) div.classList.add('winner');
+            if (this.lstate === 'DRAIN_EMIT' && minCandidate && idx === this.minCandidateIdx) div.classList.add('winner');
+            if (this.lstate === 'REFILL' && minCandidate && idx === this.minCandidateIdx) div.classList.add('replacing');
+
+            container.appendChild(div);
+          });
+        } else {
+          const layout = this.nodeCoordsHeap(this.heap.length, width);
+          const coords = layout.coords;
+          const dynamicHeight = Math.max(180, layout.height);
+          container.style.minHeight = `${dynamicHeight}px`;
+          lines.setAttribute('viewBox', `0 0 ${width} ${dynamicHeight}`);
+          lines.setAttribute('preserveAspectRatio', 'none');
+
+          this.heap.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'node';
+            div.style.left = `${coords[idx].x - 31}px`;
+            div.style.top = `${coords[idx].y - 31}px`;
+            const valSpan = document.createElement('span');
+            valSpan.className = 'val';
+            valSpan.textContent = this.valStr(item.val);
+            const idxSpan = document.createElement('span');
+            idxSpan.className = 'idx';
+            idxSpan.textContent = item.runId;
+            div.append(valSpan, idxSpan);
+
+            if (this.hstate === 'POP' && idx === 0) div.classList.add('winner');
+            if (this.hstate === 'ROOT_DRAIN' && idx === 0) div.classList.add('replacing');
+            if (this.hstate === 'SIFT_COMPARE' && (idx === this.siftIndex || idx === 2 * this.siftIndex + 1 || idx === 2 * this.siftIndex + 2)) div.classList.add('scanning');
+            if (this.hstate === 'SIFT_SWAP' && (idx === this.siftIndex || idx === this.compareTarget)) div.classList.add('swapping');
+
+            container.appendChild(div);
+
+            const left = 2 * idx + 1;
+            const right = 2 * idx + 2;
+            if (left < this.heap.length) this.drawLine(coords[idx].x, coords[idx].y, coords[left].x, coords[left].y);
+            if (right < this.heap.length) this.drawLine(coords[idx].x, coords[idx].y, coords[right].x, coords[right].y);
+          });
+        }
+      }
+
+      renderFinal() {
+        const out = document.getElementById('finalOutput');
+        if (this.finalOutput.length === 0) {
+          if (out.childElementCount > 0) {
+            while (out.firstChild) out.removeChild(out.firstChild);
+          }
+          this.renderedFinalCount = 0;
+          return;
+        }
+        if (this.finalOutput.length < this.renderedFinalCount) {
+          while (out.firstChild) out.removeChild(out.firstChild);
+          this.renderedFinalCount = 0;
+        }
+        for (let i = this.renderedFinalCount; i < this.finalOutput.length; i++) {
+          const d = document.createElement('div');
+          d.className = 'item output';
+          d.textContent = this.finalOutput[i];
+          out.appendChild(d);
+        }
+        this.renderedFinalCount = this.finalOutput.length;
+      }
+
+      renderReplacementState() {
+        const panel = document.getElementById('replacementPanel');
+        const meta = document.getElementById('replacementMeta');
+        const heapContainer = document.getElementById('replacementHeapContainer');
+        const heapSvg = document.getElementById('replacementHeapLines');
+        const frozenEl = document.getElementById('replacementFrozen');
+        const currentEl = document.getElementById('replacementCurrent');
+
+        Array.from(heapContainer.querySelectorAll('.mini-node, .mini-empty')).forEach((n) => n.remove());
+        heapSvg.replaceChildren();
+        frozenEl.replaceChildren();
+        currentEl.replaceChildren();
+
+        if (this.runGeneration !== 'replacement') {
+          panel.style.display = 'none';
+          return;
+        }
+        panel.style.display = 'block';
+
+        meta.textContent = `State: ${this.replState} | input read: ${this.inputConsumed}/${this.inputData.length} | last out: ${this.valStr(this.replLastOut)} | incoming: ${this.replIncomingVal === null ? '-' : this.replIncomingVal}`;
+
+        const activeLimit = 31;
+        const activeHeap = this.replActive.slice(0, activeLimit);
+        if (!activeHeap.length) {
+          const empty = document.createElement('div');
+          empty.className = 'mini-empty';
+          empty.textContent = 'empty';
+          heapContainer.appendChild(empty);
+        } else {
+          const width = Math.max(280, heapContainer.clientWidth);
+          const layout = this.nodeCoordsHeap(activeHeap.length, width);
+          const coords = layout.coords;
+          const dynamicHeight = Math.max(170, layout.height);
+          heapContainer.style.minHeight = `${dynamicHeight}px`;
+          heapSvg.setAttribute('viewBox', `0 0 ${width} ${dynamicHeight}`);
+          heapSvg.setAttribute('preserveAspectRatio', 'none');
+
+          activeHeap.forEach((v, idx) => {
+            const left = 2 * idx + 1;
+            const right = 2 * idx + 2;
+            if (left < activeHeap.length) this.drawMiniLine(heapSvg, coords[idx].x, coords[idx].y, coords[left].x, coords[left].y);
+            if (right < activeHeap.length) this.drawMiniLine(heapSvg, coords[idx].x, coords[idx].y, coords[right].x, coords[right].y);
+          });
+
+          activeHeap.forEach((v, idx) => {
+            const node = document.createElement('div');
+            node.className = 'mini-node';
+            if (idx === 0 && this.replState === 'POP') node.style.borderColor = '#ff9800';
+            node.style.left = `${coords[idx].x - 22}px`;
+            node.style.top = `${coords[idx].y - 22}px`;
+            node.textContent = this.valStr(v);
+            heapContainer.appendChild(node);
+          });
+        }
+        this.replFrozen.slice(0, 24).forEach((v) => {
+          const d = document.createElement('div');
+          d.className = 'run-item frozen';
+          d.textContent = v;
+          frozenEl.appendChild(d);
+        });
+        this.replCurrent.slice(0, 24).forEach((v) => {
+          const d = document.createElement('div');
+          d.className = 'run-item current';
+          d.textContent = v;
+          currentEl.appendChild(d);
+        });
+
+        if (!this.replFrozen.length) {
+          const d = document.createElement('div');
+          d.className = 'run-item';
+          d.textContent = 'empty';
+          frozenEl.appendChild(d);
+        }
+        if (!this.replCurrent.length) {
+          const d = document.createElement('div');
+          d.className = 'run-item';
+          d.textContent = 'empty';
+          currentEl.appendChild(d);
+        }
+      }
+
+      render() {
+        this.renderTape();
+        this.renderRuns('runsPanel', this.activeGroup.length ? this.activeGroup : this.runs, Boolean(this.activeGroup.length));
+        this.renderRuns('nextRunsPanel', this.nextPassRuns, false);
+        this.renderWorkspace();
+        this.renderFinal();
+        this.updateStats();
+      }
+    }
+
+    const app = new ExternalMergeVisualizer();
+    window.addEventListener('resize', () => app.renderWorkspace());
+  </script>
+</body>
+</html>
